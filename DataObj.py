@@ -1,13 +1,17 @@
 import os
-import numpy as np
-import scipy.signal as sig
-# from pyedflib import highlevel
 import mne
 
 
 class DataObj:
 
     def __init__(self, filepath: str, filename: str = None):
+        """
+        Initialize a DataObject from an EDF file.
+
+        :param filepath: absolute file path or parent directory if <filename> is also given.
+        :param filename: (OPTIONAL) file name (with extension), necessary only if <filepath> is the directory containing
+                         the EDF file <filename>.
+        """
 
         # If <filepath> is the absolute file path, deduce <filename> from it:
         if filename is None:
@@ -40,7 +44,10 @@ class DataObj:
         self.dau = None
         self.app_ver = None
 
-    def readEDF(self, decimation_exg: int = 1, decimation_imu: int = 1):
+        # Initialize from EDF
+        self.readEDF()
+
+    def readEDF(self):
         """
         Read EDF file using mne package:
         Input: filepath - EDF's file directory OR full absolute path to file.
@@ -105,14 +112,18 @@ class DataObj:
         # self.raw_imu, self.ts_imu, self.fs_imu = DataObj.decimate(raw_imu, ts_imu, fs_imu, decimation_imu)
 
         """ USE MNE TO PARSE THE DATA """
-        edfData = mne.io.read_raw_edf(self.filepath, exclude={'N.A'})
+        try:
+            edfData = mne.io.read_raw_edf(self.filepath, exclude={'N.A'})
+        except Exception as e:
+            print('Failed to parse EDF file: ' + str(e))
+            return
 
         # Triggers
         self.annotations = [(time, desc) for time, desc in
                             zip(edfData.annotations.onset, edfData.annotations.description) if
                             ('File started' not in desc) and ('Change mode' not in desc) and (time > 0)]
 
-        try:  # If new EDF format
+        try:  # If new EDF format (after AWS lambda update on 20 Oct. 2021)
 
             # Get recording info that exists only in the new EDF format
             self.montage = [txt for txt in edfData.annotations.description if 'montageSku: ' in txt][0][len('montageSku: '):]
@@ -120,7 +131,7 @@ class DataObj:
             self.app_ver = [txt for txt in edfData.annotations.description if 'App version: ' in txt][0][len('App version: '):]
 
             edf_format = 'new'
-        except IndexError:  # If old EDF format
+        except IndexError:  # If old EDF format (before AWS lambda update on 20 Oct. 2021)
             edf_format = 'old'
 
         if edf_format == 'new':
@@ -151,9 +162,9 @@ class DataObj:
         fs_exg = edf_exg.info['sfreq']
         self.ch_names_exg = edf_exg.ch_names
 
-        # Decimate data (and correspondingly adjust the timestamp vector and sampling rate) if desired
-        self.data_exg, self.ts_exg, self.fs_exg = DataObj.decimate(raw_exg, ts_exg, fs_exg, decimation_exg)
-        self.data_imu, self.ts_imu, self.fs_imu = DataObj.decimate(raw_imu, ts_imu, fs_imu, decimation_imu)
+        # # Decimate data (and correspondingly adjust the timestamp vector and sampling rate) if desired
+        # self.data_exg, self.ts_exg, self.fs_exg = DataObj.decimate(raw_exg, ts_exg, fs_exg, decimation_exg)
+        # self.data_imu, self.ts_imu, self.fs_imu = DataObj.decimate(raw_imu, ts_imu, fs_imu, decimation_imu)
 
     def get_channels(self, subset: str) -> list:
         """
@@ -185,34 +196,34 @@ class DataObj:
 
         return channels
 
-    @staticmethod
-    def decimate(data: np.ndarray, ts: np.ndarray, fs: float, decimation_factor: int = 1):
-        """
-        Decimates 2D <data> matrix column-wise by a factor of <decimation_factor>.
-
-        :param data: 2D data matrix. Rows are samples, columns are channels.
-        :param ts: 1D timestamp vector equal in samples to number of rows of <data>.
-        :param fs: sampling rate.
-        :param decimation_factor: returned data is decimated by a factor of <decimation_factor>
-        :return: Decimated data matrix, <decimation_factor>-times smaller than the input <data>.
-        """
-
-        if (decimation_factor == 1) or any(arg for arg in (data, ts, fs, decimation_factor) is None):
-            return data, ts, fs
-
-        # Performs the same computation as
-        # ``data = sig.decimate(data, q=decimation_factor, axis=0, n=2)``
-        # except that the computation is done column-by-column instead of all at once to prevent crashing
-        system = sig.dlti(*sig.cheby1(N=2, rp=0.05, Wn=0.8 / decimation_factor))
-        b, a = system.num, system.den
-        for col in range(data.shape[1]):
-            data[:, col] = sig.filtfilt(b, a, data[:, col], axis=0)
-        data = data[::decimation_factor, :]
-
-        # Downsample timestamp vector without filtering
-        ts = ts[::decimation_factor]
-
-        # Update effective sampling rate
-        fs = fs / decimation_factor
-
-        return data, ts, fs
+    # @staticmethod
+    # def decimate(data: np.ndarray, ts: np.ndarray, fs: float, decimation_factor: int = 1):
+    #     """
+    #     Decimates 2D <data> matrix column-wise by a factor of <decimation_factor>.
+    #
+    #     :param data: 2D data matrix. Rows are samples, columns are channels.
+    #     :param ts: 1D timestamp vector equal in samples to number of rows of <data>.
+    #     :param fs: sampling rate.
+    #     :param decimation_factor: returned data is decimated by a factor of <decimation_factor>
+    #     :return: Decimated data matrix, <decimation_factor>-times smaller than the input <data>.
+    #     """
+    #
+    #     if (decimation_factor == 1) or any(arg for arg in (data, ts, fs, decimation_factor) is None):
+    #         return data, ts, fs
+    #
+    #     # Performs the same computation as
+    #     # ``data = sig.decimate(data, q=decimation_factor, axis=0, n=2)``
+    #     # except that the computation is done column-by-column instead of all at once to prevent crashing
+    #     system = sig.dlti(*sig.cheby1(N=2, rp=0.05, Wn=0.8 / decimation_factor))
+    #     b, a = system.num, system.den
+    #     for col in range(data.shape[1]):
+    #         data[:, col] = sig.filtfilt(b, a, data[:, col], axis=0)
+    #     data = data[::decimation_factor, :]
+    #
+    #     # Downsample timestamp vector without filtering
+    #     ts = ts[::decimation_factor]
+    #
+    #     # Update effective sampling rate
+    #     fs = fs / decimation_factor
+    #
+    #     return data, ts, fs
