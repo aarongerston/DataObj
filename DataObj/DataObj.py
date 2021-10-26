@@ -143,23 +143,23 @@ class DataObj:
             edf_imu = mne.io.read_raw_edf(self.filepath, exclude=[edfData.ch_names[ch] for ch in exg_channels])
 
             # Raw electrode data matrices
-            raw_imu = edf_imu[:, :][0].T*1e6
-            ts_imu = edf_imu.times
-            fs_imu = edf_imu.info['sfreq']
+            self.data_imu = edf_imu[:, :][0].T*1e6
+            self.ts_imu = edf_imu.times
+            self.fs_imu = edf_imu.info['sfreq']
             self.ch_names_imu = edf_imu.ch_names
 
         else:
             # Ignore IMU part
-            raw_imu = None
-            ts_imu = None
-            fs_imu = None
+            self.data_imu = None
+            self.ts_imu = None
+            self.fs_imu = None
 
             edf_exg = edfData
 
         # Parse EXG part of EDF
-        raw_exg = edf_exg[:, :][0].T*1e6
-        ts_exg = edf_exg.times
-        fs_exg = edf_exg.info['sfreq']
+        self.data_exg = edf_exg[:, :][0].T*1e6
+        self.ts_exg = edf_exg.times
+        self.fs_exg = edf_exg.info['sfreq']
         self.ch_names_exg = edf_exg.ch_names
 
         # # Decimate data (and correspondingly adjust the timestamp vector and sampling rate) if desired
