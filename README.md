@@ -24,9 +24,6 @@ Run: `pip uninstall DataObj`
     full_file_path = r'C:\myDirectory\myFile.edf'
     obj = DataObj.DataObj(full_file_path)
 
-    # To parse the EDF file, call the DataObj.readEDF()
-    obj.readEDF()
-
     # Now you have everything you need!
     triggers = obj.annotations                      # list of event tuples: (time in sec (float), description (str))
     electrode_data = obj.data_exg                   # 2D numpy array (n_samples, n_channels)
