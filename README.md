@@ -13,7 +13,7 @@ Run: `pip uninstall DataObj`
     
 ## Xtrodes DataObj class example ##
 
-    from DataObj import DataObj
+    from DataObj.DataObj import DataObj
 
     # To initialize the DataObj, provide DataObj either the parent directory and file name, as so:
     directory = r'C:\myDirectory'
